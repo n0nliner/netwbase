@@ -1,5 +1,6 @@
 import pickle
 import settings
+import os
 
 class register:
     def __init__(self, root=None):
@@ -31,12 +32,31 @@ class register:
     def find(self, key):
         return list(filter(key, self.content))
 
+    def find_gen(self, key):
+        for el in self.content:
+            if key(el):
+                yield el
+
     def get_by_layer_gen(self, layer):
         for ch in self.find(lambda _node: _node.layer() == layer):
             yield ch
 
     def get_layers_elements(self, layer):
         return [ch for ch in self.get_by_layer_gen()]
+
+    def max_depth(self):
+        return max(self.content, key=lambda node_:node_.calc_layer()).calc_layer() + 1
+
+    def layer_iterator(self, layer_from=0, layer_to=None):
+        layer_to = layer_to if layer_to else self.max_depth()
+        for l_now in range(layer_from, layer_to):
+            for el in self.find_gen(key=lambda node_: node_.calc_layer() == l_now):
+                yield el
+
+    def __iter__(self):
+        for el in self.layer_iterator():
+            yield el
+
 
 
 class node:
@@ -88,7 +108,7 @@ class root_node(node):
         return GOR.root_auto_id()
 
 
-# print(GOR.find(key=lambda l: l.id==self.id ))
+
 class simple_node(node):
     def __init__(self, parents=[], metadata={}, register=True):
         super(simple_node, self).__init__(metadata=metadata)
@@ -105,12 +125,12 @@ class simple_node(node):
         self.content.append(child)
 
     def calc_layer(self):
-        return self.parents[0].layer + 1
+        return self.parents[0].calc_layer() + 1
 
 
 
 def auto_commit_name():
-    return len(os.listdir(settings.commits_folder))
+    return len(os.listdir(os.path.join(settings.full_path, settings.commits_folder)))
 
 def make_commit(commit_name=None):
     commit_name = commit_name if commit_name else auto_commit_name()
@@ -118,6 +138,10 @@ def make_commit(commit_name=None):
     with open(os.path.join(settings.full_path, settings.commits_folder, commit_name), "wb+") as commit:
         commit.write(GOR_dump)
 
+def load_commit(commit_name=None):
+    load_it = commit_name if commit_name else auto_commit_name() - 1
+    with open('netbase/commits/'+load_it, "rb") as loading:
+        globals().update({"GOR":pickle.loads(loading.read())})
 
 
 
